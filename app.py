@@ -5,6 +5,7 @@ import time
 
 import streamlit as st
 import numpy as np
+import pandas as pd
 
 from sim import World, Vehicle
 
@@ -12,6 +13,7 @@ from sim import World, Vehicle
 earth = World()
 
 rocket = Vehicle()
+print(type(rocket))
 
 rocket.place_on_surface(earth)
 
@@ -24,38 +26,15 @@ def main():
 
     progress_bar = st.sidebar.progress(0)
 
-    status_text = st.sidebar.empty()
     last_rows = np.array([rocket.y-earth.radius])
-    chart = st.line_chart(last_rows)
-    chart2 = st.line_chart(np.array([rocket.dy]).astype("float16"))
+
     time_stamp = 0
     sim_time = 50
     dt = 0.1
+    i = 0
 
-    for i in range(1, int(sim_time/dt)):
-        thrust = 1.0
-        if i > 60:
-            thrust = 0.0
-        rocket.step(thrust,earth,dt)
-        time_stamp+=dt
+    # while(True):
 
-        new_rows = np.array([rocket.y-earth.radius])
-        new_rows2 = np.array([rocket.dy]).astype("float16")
-        status_text.text("%i%% Complete" % i)
-
-        chart.add_rows(new_rows)
-        chart2.add_rows(new_rows2)
-
-        progress_bar.progress(i/(sim_time/dt))
-        last_rows = new_rows
-
-        # print(last_rows)
-
-    progress_bar.empty()
-
-    # Streamlit widgets automatically run the script from top to bottom. Since
-    # this button is not connected to any other logic, it just causes a plain
-    # rerun.
     st.button("Re-run")
 
 

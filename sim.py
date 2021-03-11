@@ -2,8 +2,28 @@ import numpy as np
 import pandas as pd
 import math
 
+
+class logger:
+
+    def __init__(self):
+        self.log = pd.DataFrame([])
+
+
+class Master:
+    def __init__(self):
+        self.objects = []
+
+    # add objects to scene
+    def self_add_to_scene(self):
+        pass
+
+    # pass time for all objects in the scene
+    def pass_time(self, dt):
+        pass
+
+
 class World:
-    def __init__(self,config = "Earth"):
+    def __init__(self, config="Earth"):
 
         if config == "Earth":
             # properties
@@ -21,7 +41,7 @@ class World:
             for i in range(self.bounday_altitude):
                 if i <= 11:
                     T = 15.04 - 0.00649*i*1000
-                    p = 101.29*((T+273.1)/288.08)
+                    p = 101.29*((T+273.1)/288.08)**5.256
 
                 elif i > 11 and i <= 25:
                     T = -56.46
@@ -33,17 +53,17 @@ class World:
 
                 rho = p/(.2869*(T+273.1))
                 self.rho.append(rho)
-                i+=1
+                i += 1
 
             # print(self.rho)
             print("Earth config selected!")
         else:
             print("Unknown Config!")
 
-
         # get location of body
+
     def get_location(self):
-        return self.x,self.y
+        return self.x, self.y
 
         # calculate the acceleration at a given altitude
     def get_acc(self, distance):
@@ -51,19 +71,28 @@ class World:
         Acc = G*(self.mass/(distance)**2)
         return Acc
 
+    # pass time - do nothing
+    def step(self):
+        pass
+
         # this is a simple version, should be interpolated
-    def get_rho(self,distance):
+    def get_rho(self, distance):
         height = distance - self.radius
-        index = int (self.find_nearest(self.rho, height/1000))
+
+        index = self.find_nearest(self.rho, height/1000).astype("int")
+        # print(height,index)
+        # print(self.rho[index])
         return self.rho[index]
 
-    def find_nearest(self,array, value):
-        array = np.asarray(array)
+
+    def find_nearest(self, array, value):
+        array = np.asarray(range(len(array)))
         idx = (np.abs(array - value)).argmin()
         return array[idx]
 
+
 class Vehicle:
-    def __init__(self,config = "Basic"):
+    def __init__(self, config="Basic"):
 
         # rocket parameters sorted by units
 
@@ -76,12 +105,12 @@ class Vehicle:
 
         # kilo-newtons
         self.thrust_sl = 7609e3
-        self.thrust_vac= 8227e3
+        self.thrust_vac = 8227e3
 
         # seconds
         self.burn_time = 162
 
-        #other
+        # other
         self.x = 0
         self.y = 0
         self.theta = 0
@@ -90,35 +119,84 @@ class Vehicle:
         self.dy = 0
         self.dtheta = 0
 
-        self.drag_coeff = 0.7
+        self.drag_coeff = 0.3
 
         self.fuel_per_sec = self.fuel_mass/self.burn_time
+        self.heading = 0
 
-    def place_on_surface(self,world):
+    def place_on_surface(self, world):
 
         radius = world.radius
 
-        self.x = 0              #  align with world centre
-        self.y = radius         #  place on surface
-        self.theta = 0          #  point upwards
+        self.x = 0  # align with world centre
+        self.y = radius  # place on surface
+        self.theta = 0  # point upwards
 
-    def step(self, thrust, world,dt): # gonna add angle and commands
+    def get_location(self):
+        return self.x, self.y
+
+    def step(self, thrust, world, dt):  # gonna add angle and commands
+
         if self.mass < (self.start_mass - self.fuel_mass):
             thrust = 0
 
         self.x += self.dx*dt
         self.y += self.dy*dt
 
-        wx,wy = world.get_location()
-        diffx   = wx - self.x
-        diffy   = wy - self.y
-        distance = np.sqrt(diffx**2+diffy**2)
+        wx, wy = world.get_location()
+        diffx = -wx + self.x
+        diffy = -wy + self.y
+        distance = np.sqrt(np.power(diffx,2)+np.power(diffy,2))
+        cogang = np.arctan2(diffx,diffy)
 
-        drag_force = -self.drag_coeff*((world.get_rho(distance)*np.sqrt(self.dx**2+self.dy**2)**2)/2)*(np.pi*self.radius**2)
 
-        grav_force = -world.get_acc(distance)*self.mass # this needs to be automatically applied to be directed towards the world
-        # print(grav_force,drag_force,self.thrust_sl*thrust,grav_force+drag_force+self.thrust_sl*thrust)
-        self.dx += 0
-        self.dy += ((grav_force + drag_force + self.thrust_sl*thrust)/self.mass)*dt
+        grav_acc = (-world.get_acc(distance))
+
+
+        grav_accx = grav_acc*np.sin(cogang)
+        grav_accy = grav_acc*np.cos(cogang)
+
+
+
+        # this needs to be automatically applied to be directed towards the world
+
+
+        # print(self.thrust_sl*thrust, drag_force, self.thrust_sl*thrust-drag_force)
+
+
+
+        # print(np.cos(np.radians(self.theta)),acc_mag* np.cos(np.radians(self.theta)))
+
+        self.heading = np.arctan2(self.dx,self.dy)
+
+        drag_acc = (self.drag_coeff *((world.get_rho(distance)*np.sqrt(self.dx**2+self.dy**2)**2)/2)*(np.pi*self.radius**2))/self.mass
+        drag_accx = -drag_acc * np.sin(self.heading)
+        drag_accy = -drag_acc * np.cos(self.heading)
+
+        # print(acc_mag)
+
+        acc_mag = ((self.thrust_sl*thrust)/self.mass)
+
+        accx = acc_mag * np.sin(np.radians(self.theta))
+        accy = acc_mag * np.cos(np.radians(self.theta))
+
+        # print("Gravity")
+        # print(grav_accx ,grav_accy,grav_acc)
+        #
+        # print("Thrust")
+        # print(accx,accy,acc_mag)
+        #
+        # print("Drag")
+        # print(drag_accx,drag_accy,drag_acc)
+        #
+        # print("Speed")
+        # print(self.dx,self.dy,np.sqrt(self.dy**2+self.dx**2))
+
+
+
+        ## print(accy)
+
+        self.dx += (accx + grav_accx + drag_accx)*dt
+        self.dy += (accy + grav_accy + drag_accy)*dt
 
         self.mass -= thrust*self.fuel_per_sec*dt
