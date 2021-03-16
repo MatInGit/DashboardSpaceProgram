@@ -94,7 +94,11 @@ class World:
 class Vehicle:
     def __init__(self, config="Basic"):
 
-        # rocket parameters sorted by units
+        #commands
+        self._thurst_state = np.zeros(10)
+        self._angle_state = np.zeros(10)
+        self.desired_thrust = 0
+        self.desired_angle = 0
 
         self.radius = 3.7
 
@@ -104,8 +108,9 @@ class Vehicle:
         self.fuel_mass = 440e3
 
         # kilo-newtons
-        self.thrust_sl = 7609e3
+        self.thrust_sl = 8027e3# 7609e3
         self.thrust_vac = 8227e3
+        self.thrust = 0
 
         # seconds
         self.burn_time = 162
@@ -135,13 +140,32 @@ class Vehicle:
     def get_location(self):
         return self.x, self.y
 
-    def step(self, thrust, world, dt):  # gonna add angle and commands
+
+    def step(self, commands, world, dt):  # gonna add angle and commands
+
+
+        if type(commands)== type({"d":0}):
+            for i in commands.keys():
+                if i == "thrust":
+                     self.desired_thrust = commands[i]
+                if i == "theta":
+                    self.desired_angle= commands[i]
+
+        if type(commands) == type(0):
+            self.desired_thrust = commands
+        self._thurst_state = np.roll(self._thurst_state,1)
+
+        self._thurst_state[0] = self.thrust
+        self.thrust =  self.thrust + (self.desired_thrust-self.thrust)/5
+        self.theta =  self.theta + (self.desired_angle-self.theta)/25
+        # print(self.theta, self.desired_angle)
+
+
 
         if self.mass < (self.start_mass - self.fuel_mass):
-            thrust = 0
+            self.thrust = 0
 
-        self.x += self.dx*dt
-        self.y += self.dy*dt
+
 
         wx, wy = world.get_location()
         diffx = -wx + self.x
@@ -175,7 +199,7 @@ class Vehicle:
 
         # print(acc_mag)
 
-        acc_mag = ((self.thrust_sl*thrust)/self.mass)
+        acc_mag = ((self.thrust_sl*self.thrust)/self.mass)
 
         accx = acc_mag * np.sin(np.radians(self.theta))
         accy = acc_mag * np.cos(np.radians(self.theta))
@@ -196,7 +220,13 @@ class Vehicle:
 
         ## print(accy)
 
+
+
         self.dx += (accx + grav_accx + drag_accx)*dt
         self.dy += (accy + grav_accy + drag_accy)*dt
 
-        self.mass -= thrust*self.fuel_per_sec*dt
+        self.x += self.dx*dt
+        self.y += self.dy*dt
+        self.theta += self.dtheta
+
+        self.mass -= self.thrust*self.fuel_per_sec*dt
