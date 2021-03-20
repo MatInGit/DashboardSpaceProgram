@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import math
-
+import ast
 
 class logger:
 
@@ -34,7 +34,7 @@ class World:
             self.x = 0
             self.y = 0
 
-            # atmosphere density profile taken from https://www.grc.nasa.gov/www/k-12/rocket/atmosmet.html
+            # atmosphere density profile taken from https://www.grc.nasa.gov/www/k-12/self/atmosmet.html
             self.bounday_altitude = 120
             self.rho = []
 
@@ -122,12 +122,22 @@ class Vehicle:
 
         self.dx = 0
         self.dy = 0
+
         self.dtheta = 0
 
         self.drag_coeff = 0.3
 
+        self.alt = 0
+        self.range = 0
+
+        self.dalt = 0
+        self.drange = 0
+
         self.fuel_per_sec = self.fuel_mass/self.burn_time
         self.heading = 0
+        self.t = 0
+
+        self.separation = False
 
     def place_on_surface(self, world):
 
@@ -140,24 +150,96 @@ class Vehicle:
     def get_location(self):
         return self.x, self.y
 
+    def command_parser(self,command):
 
-    def step(self, commands, world, dt):  # gonna add angle and commands
+        res = ast.literal_eval(command)
+
+        for rule in res.keys():
+
+            statement_is_true = True
+            for var in res[rule]["condition"].keys():
+
+                for comparator in res[rule]["condition"][var].keys():
+
+                    value = res[rule]["condition"][var][comparator]
+
+                    if var == "t":
+                        read_value = self.t
+                    if var == "alt":
+                        rx, ry = self.get_location()
+                        wx, wy = earth.get_location()
+                        read_value = np.sqrt((wx-rx)**2+(wy-ry)**2)- world.radius
+                    if var == "range":
+                        rx, ry = self.get_location()
+                        read_value = np.arctan2((rx), (ry))*world.radius
+                    if var == "heading":
+                        read_value = self.heading
+                    if var == "dalt":
+                        read_value = self.dalt
+                    if var == "drange":
+                        read_value = self.drange
+
+                    if comparator == ">":
+                        if not (read_value > value):
+                            statement_is_true = False
+                            break
+                    if comparator == ">=":
+                        if not (read_value >= value):
+                            statement_is_true = False
+                            break
+                    if comparator == "<":
+                        if not (read_value < value):
+                            statement_is_true = False
+                            break
+                    if comparator == "<=":
+                        if not (read_value <= value):
+                            statement_is_true = False
+                            break
+                    if comparator == "==":
+                        if not (read_value == value):
+                            statement_is_true = False
+                            break
+
+            if statement_is_true:
+                for action in res[rule]["action"].keys():
+                    if action == "thrust":
+                        self.desired_thrust = res[rule]["action"][action]
+
+                    if action == "angle":
+                        if type(res[rule]["action"][action]) == type(str(1)):
+                            if res[rule]["action"][action] == "prograde":
+                                self.desired_angle = np.degrees(self.heading)
+                            if res[rule]["action"][action] == "retrograde":
+                                self.desired_angle = np.degrees(self.heading - np.pi)
+                        else:
+                            self.desired_angle = res[rule]["action"][action]
+                    if action == "separation":
+                        if not self.separation:
+                            self.separation = True
+                            self.mass -= 97e3
+                            print(self.mass)
+                    if action == "fairing":
+                        if not self.separation:
+                            if res[rule]["action"][action] == "fold":
+                                self.drag_coeff = 0.3
+                            if res[rule]["action"][action] == "deploy":
+                                self.drag_coeff = 0.8
 
 
-        if type(commands)== type({"d":0}):
-            for i in commands.keys():
-                if i == "thrust":
-                     self.desired_thrust = commands[i]
-                if i == "theta":
-                    self.desired_angle= commands[i]
 
-        if type(commands) == type(0):
-            self.desired_thrust = commands
-        self._thurst_state = np.roll(self._thurst_state,1)
+    def step(self, commands, world, dt,t = None):  # gonna add angle and commands
+
+        self.command_parser(commands)
+        # if type(commands)== type({"d":0}):
+        #     for i in commands.keys():
+        #         if i == "thrust":
+        #              self.desired_thrust = commands[i]
+        #         if i == "theta":
+        #             self.desired_angle= commands[i]
 
         self._thurst_state[0] = self.thrust
         self.thrust =  self.thrust + (self.desired_thrust-self.thrust)/5
-        self.theta =  self.theta + (self.desired_angle-self.theta)/25
+        self.theta =  self.theta + (self.desired_angle-self.theta)/40
         # print(self.theta, self.desired_angle)
 
 
@@ -217,10 +299,7 @@ class Vehicle:
         # print(self.dx,self.dy,np.sqrt(self.dy**2+self.dx**2))
 
 
-
-        ## print(accy)
-
-
+        ### absolute reference grid calc ###
 
         self.dx += (accx + grav_accx + drag_accx)*dt
         self.dy += (accy + grav_accy + drag_accy)*dt
@@ -229,4 +308,18 @@ class Vehicle:
         self.y += self.dy*dt
         self.theta += self.dtheta
 
+        ### alt and range calc ###
+
+        wx, wy = world.get_location()
+        rx, ry = self.get_location()
+        alt_temp = np.sqrt((wx-rx)**2+(wy-ry)**2) - world.radius
+        range_temp = np.arctan2((rx), (ry))*world.radius
+
+        self.dalt = (alt_temp - self.alt)/dt
+        self.drange = (range_temp - self.range)/dt
+
+        self.alt = alt_temp
+        self.range = range_temp
+
         self.mass -= self.thrust*self.fuel_per_sec*dt
+        self.t +=dt
