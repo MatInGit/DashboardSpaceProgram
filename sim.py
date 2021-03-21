@@ -150,7 +150,7 @@ class Vehicle:
     def get_location(self):
         return self.x, self.y
 
-    def command_parser(self,command):
+    def command_parser(self,command,world):
 
         res = ast.literal_eval(command)
 
@@ -229,7 +229,7 @@ class Vehicle:
 
     def step(self, commands, world, dt,t = None):  # gonna add angle and commands
 
-        self.command_parser(commands)
+        self.command_parser(commands,world)
         # if type(commands)== type({"d":0}):
         #     for i in commands.keys():
         #         if i == "thrust":
