@@ -115,7 +115,7 @@ def main():
     if colc1.button("Run"):
 
 
-        while(i < 2*160000):
+        while(i < 4*16000):
 
             rocket.step(commands,earth,dt)
 
