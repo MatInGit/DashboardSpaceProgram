@@ -26,6 +26,8 @@ class World:
     def __init__(self, config="Earth"):
 
         if config == "Earth":
+
+
             # properties
             self.mass = 5.972e24
             self.radius = 6371e3
@@ -94,6 +96,9 @@ class World:
 class Vehicle:
     def __init__(self, config="Basic"):
 
+        self.data_log = []
+
+
         #commands
         self._thurst_state = np.zeros(10)
         self._angle_state = np.zeros(10)
@@ -105,6 +110,7 @@ class Vehicle:
         # metric tons
         self.start_mass = 549e3
         self.mass = 549e3
+        self.init_fuel_mass = 440e3
         self.fuel_mass = 440e3
 
         # kilo-newtons
@@ -122,6 +128,12 @@ class Vehicle:
 
         self.dx = 0
         self.dy = 0
+
+        self.accx = 0
+        self.accy = 0
+        self.acc_mag = 0
+
+        self.world = None
 
         self.dtheta = 0
 
@@ -203,7 +215,7 @@ class Vehicle:
             if statement_is_true:
                 for action in res[rule]["action"].keys():
                     if action == "thrust":
-                        self.desired_thrust = res[rule]["action"][action]
+                        self.desired_thrust = np.clip(res[rule]["action"][action],0,1)
 
                     if action == "angle":
                         if type(res[rule]["action"][action]) == type(str(1)):
@@ -218,18 +230,43 @@ class Vehicle:
                             self.separation = True
                             self.mass -= 97e3
                             print(self.mass)
-                    if action == "fairing":
+                    if action == "griself.data_logins":
                         if not self.separation:
                             if res[rule]["action"][action] == "fold":
                                 self.drag_coeff = 0.3
                             if res[rule]["action"][action] == "deploy":
-                                self.drag_coeff = 0.8
+                                self.drag_coeff = 1.3
+    def get_log(self):
+        cols = ["t","x","y","dx","dy","dxy","alt","range","dalt","drange","heading","ang","mass","fuel"]
+        return pd.DataFrame(self.data_log,columns = cols)
 
 
+    def log_data(self):
+        array_log = []
+        array_log.append(self.t)
+        array_log.append(self.x)
+        array_log.append(self.y- self.world.radius)
+        array_log.append(self.dx)
+        array_log.append(self.dy)
+        array_log.append(np.sqrt(np.power(self.dy, 2)+np.power(self.dx, 2)))
+        array_log.append(self.alt)
+        array_log.append(self.range)
+        array_log.append(self.dalt)
+        array_log.append(self.drange)
+        array_log.append(np.degrees(self.heading))
+        array_log.append(self.theta)
+        array_log.append(self.mass)
+        array_log.append(self.fuel_mass)
+
+        self.data_log.append(array_log)
 
     def step(self, commands, world, dt,t = None):  # gonna add angle and commands
+        self.world = world
+
+        self.log_data()
 
         self.command_parser(commands,world)
+
         # if type(commands)== type({"d":0}):
         #     for i in commands.keys():
         #         if i == "thrust":
@@ -238,13 +275,13 @@ class Vehicle:
         #             self.desired_angle= commands[i]
 
         self._thurst_state[0] = self.thrust
-        self.thrust =  self.thrust + (self.desired_thrust-self.thrust)/5
+        self.thrust =  self.thrust + (self.desired_thrust-self.thrust)/2
         self.theta =  self.theta + (self.desired_angle-self.theta)/40
         # print(self.theta, self.desired_angle)
 
 
 
-        if self.mass < (self.start_mass - self.fuel_mass):
+        if self.fuel_mass < 0:
             self.thrust = 0
 
 
@@ -263,16 +300,6 @@ class Vehicle:
         grav_accy = grav_acc*np.cos(cogang)
 
 
-
-        # this needs to be automatically applied to be directed towards the world
-
-
-        # print(self.thrust_sl*thrust, drag_force, self.thrust_sl*thrust-drag_force)
-
-
-
-        # print(np.cos(np.radians(self.theta)),acc_mag* np.cos(np.radians(self.theta)))
-
         self.heading = np.arctan2(self.dx,self.dy)
 
         drag_acc = (self.drag_coeff *((world.get_rho(distance)*np.sqrt(self.dx**2+self.dy**2)**2)/2)*(np.pi*self.radius**2))/self.mass
@@ -281,10 +308,10 @@ class Vehicle:
 
         # print(acc_mag)
 
-        acc_mag = ((self.thrust_sl*self.thrust)/self.mass)
+        self.acc_mag = ((self.thrust_sl*self.thrust)/self.mass)
 
-        accx = acc_mag * np.sin(np.radians(self.theta))
-        accy = acc_mag * np.cos(np.radians(self.theta))
+        self.accx = self.acc_mag * np.sin(np.radians(self.theta))
+        self.accy = self.acc_mag * np.cos(np.radians(self.theta))
 
         # print("Gravity")
         # print(grav_accx ,grav_accy,grav_acc)
@@ -301,8 +328,8 @@ class Vehicle:
 
         ### absolute reference grid calc ###
 
-        self.dx += (accx + grav_accx + drag_accx)*dt
-        self.dy += (accy + grav_accy + drag_accy)*dt
+        self.dx += (self.accx + grav_accx + drag_accx)*dt
+        self.dy += (self.accy + grav_accy + drag_accy)*dt
 
         self.x += self.dx*dt
         self.y += self.dy*dt
@@ -322,4 +349,5 @@ class Vehicle:
         self.range = range_temp
 
         self.mass -= self.thrust*self.fuel_per_sec*dt
+        self.fuel_mass -= self.thrust*self.fuel_per_sec*dt
         self.t +=dt
