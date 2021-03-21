@@ -167,7 +167,7 @@ class Vehicle:
                         read_value = self.t
                     if var == "alt":
                         rx, ry = self.get_location()
-                        wx, wy = earth.get_location()
+                        wx, wy = world.get_location()
                         read_value = np.sqrt((wx-rx)**2+(wy-ry)**2)- world.radius
                     if var == "range":
                         rx, ry = self.get_location()
