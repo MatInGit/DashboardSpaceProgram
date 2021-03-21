@@ -92,19 +92,20 @@ def main():
     colc1.code(code,language = 'python')
 
     colc1.markdown("""`UID0` can be any *uniqe* string, it must be uniqe otherise the parser might overwrite the rules.
-    \n`var` is the variable that is being evaluated for the rule to activate, this can be anything from the follwoing list:\n- `t` -- Mission time\n- `alt` -- Altitdue\n- `range`-- Downrange distance\n- `heading`-- Heading\n- `dalt`-- Rate of change of altitude\n- `drange`-- Rate of change of horizontal distance\n""")
+    \n`var` is the variable that is being evaluated for the rule to activate, this can be anything from the follwoing list:\n- `t` -- Mission time\n- `alt` -- Altitude\n- `range`-- Downrange distance\n- `heading`-- Heading\n- `dalt`-- Rate of change of altitude\n- `drange`-- Rate of change of downrange distance\n""")
     colc1.markdown("""`val_to_set` stands for any of the variables that you can control, you can have multiple values in one rule:\n- `thrust`-- value between 0.0 and 1.0 (zero to max thrust respectively)\n- `angle` -- the direction the thrust is applied, can be an absolute angle between -180 and 180, `prograde` or `retrograde`\n- `gridfins` -- increase coefficent of drag when deployed, the options are `deploy` or `fold`\n- `separation` -- When this keyword is used the mass eqivalent of a Falcon-9 second stage is subrtacted from the vehicle mass. The accimplanying dictionary has to be empty `'separation:{}'`. In the future this will deploy a second vehicle to control.
     """)
 
 
     default_command ="""{
-    '0': {'condition': {'t': {'>': 0, '<=': 150}}, 'action': {'thrust': 1}},
-    '1': {'condition': {'t': {'>': 150, '<=': 200}}, 'action': {'thrust': 0,'angle':'retrograde'}}
+    '0': {'condition': {'t': {'>': 0, '<=': 150}}, 'action': {'thrust': 1,'angle':10}},
+    '1': {'condition': {'t': {'>': 151, '<=': 200}}, 'action': {'thrust': 0,'angle':'retrograde','separation':{}}},
+    '2': {'condition': {'alt': {'>': 0, '<=': 3000},'t':{'>':100},'drange':{'>':10}}, 'action': {'thrust': 1,'angle':'retrograde'}}
      }"""
     commands = colc1.text_area("Program Input",default_command , height = 300)
 
     ry = colc1.slider("Initial altitude (km)",0,500,0)
-    rdy = colc1.slider("Initial vertical velocity (m/s)",0,10000,0)
+    rdy = colc1.slider("Initial vertical velocity (m/s)",-10000,10000,0)
     rdx = colc1.slider("Initial horizontal velocity (m/s)",-10000,10000,0)
 
     rocket.y = earth.radius + ry*1000
