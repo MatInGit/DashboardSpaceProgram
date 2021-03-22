@@ -1,5 +1,5 @@
 # Mateusz Leputa March 2021
-# Streamlit Space Program
+# Dashboard Space Program
 
 import time
 
@@ -50,9 +50,9 @@ def main():
     col1, colc, col2 = st.beta_columns((1, 5, 1))
 
 
-    colc.markdown('<h1 style="text-align: center;">Stramlit Space Program V 0.1</h1>',
+    colc.markdown('<h1 style="text-align: center;">Dashboard Space Program V 0.1</h1>',
                   unsafe_allow_html=True)
-    colc.markdown("""*Stramlit Space Program* was inspired by observing SpaceX launches. \
+    colc.markdown("""*Dashboard Space Program* was inspired by observing SpaceX launches. \
                     I wanted to see how difficult it would be to simulate and control a simplified model of a rocket with parameters akin to the Falcon-9. \
                     I think it has resulted in a fun tool to play around with.""", unsafe_allow_html=False)
     colc.markdown(""" ## The Simulation""", unsafe_allow_html=False)
