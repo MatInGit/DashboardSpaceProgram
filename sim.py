@@ -263,7 +263,7 @@ class Vehicle:
     def step(self, commands, world, dt,t = None):  # gonna add angle and commands
         self.world = world
 
-        self.log_data()
+
 
         self.command_parser(commands,world)
 
@@ -351,3 +351,5 @@ class Vehicle:
         self.mass -= self.thrust*self.fuel_per_sec*dt
         self.fuel_mass -= self.thrust*self.fuel_per_sec*dt
         self.t +=dt
+
+        self.log_data()
